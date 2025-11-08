@@ -73,18 +73,18 @@ def append_blocks(body: Dict[str, Any], x_api_key: Optional[str] = Header(None))
     res = notion.blocks.children.append(block_id=page_id, children=blocks)
     return res
 
-@app.post("/notion/weekly-summary")
-def weekly_summary(body: Dict[str, Any], x_api_key: Optional[str] = Header(None)):
-    """
-    Reads last N days of entries from Research Journals DB,
-    asks GPT to synthesize, writes a new page into Meeting Notes DB.
-    body: { journal_db_id, notes_db_id, days=7, title="Weekly Research Summary" }
-    """
-    require_key(x_api_key)
-    if not notion:
-        raise HTTPException(500, "Server missing NOTION_TOKEN")
-    if not client:
-        raise HTTPException(500, "Server missing OPENAI_API_KEY")
+#@app.post("/notion/weekly-summary")
+#def weekly_summary(body: Dict[str, Any], x_api_key: Optional[str] = Header(None)):
+#"""
+#Reads last N days of entries from Research Journals DB,
+#asks GPT to synthesize, writes a new page into Meeting Notes DB.
+#body: { journal_db_id, notes_db_id, days=7, title="Weekly Research Summary" }
+#"""
+#require_key(x_api_key)
+#if not notion:
+#    raise HTTPException(500, "Server missing NOTION_TOKEN")
+#if not client:
+#    raise HTTPException(500, "Server missing OPENAI_API_KEY")
 
     journal_db_id = body.get("journal_db_id")
     notes_db_id = body.get("notes_db_id")
