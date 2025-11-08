@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: cubs-gpt-connector
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    autoDeploy: true
+    envVars:
+      - key: NOTION_TOKEN
+        sync: false
+      - key: ACTIONS_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
