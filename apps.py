@@ -1,3 +1,31 @@
+import os, datetime
+from dateutil.relativedelta import relativedelta
+from fastapi import FastAPI, Header, HTTPException
+from typing import Optional, Any, Dict
+from notion_client import Client as Notion
+from openai import OpenAI
+
+NOTION_TOKEN = os.getenv("NOTION_TOKEN")
+ACTIONS_API_KEY = os.getenv("ACTIONS_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+if not NOTION_TOKEN:
+    print("WARNING: NOTION_TOKEN not set yet")
+notion = Notion(auth=NOTION_TOKEN) if NOTION_TOKEN else None
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+
+app = FastAPI(title="CUBS Notion Connector")
+
+def require_key(x_api_key: Optional[str]):
+    if not ACTIONS_API_KEY:
+        return
+    if x_api_key != ACTIONS_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+@app.get("/health")
+def health():
+    return {"ok": True}
+
 @app.post("/notion/query-database")
 def query_database(body: Dict[str, Any], x_api_key: Optional[str] = Header(None)):
     require_key(x_api_key)
@@ -30,3 +58,36 @@ def query_database(body: Dict[str, Any], x_api_key: Optional[str] = Header(None)
         "has_more": res.get("has_more", False),
         "next_cursor": res.get("next_cursor")
     }
+
+@app.post("/notion/upsert-database-item")
+def upsert_item(body: Dict[str, Any], x_api_key: Optional[str] = Header(None)):
+    require_key(x_api_key)
+    if not notion:
+        raise HTTPException(500, "Server missing NOTION_TOKEN")
+    database_id = body.get("database_id")
+    page_id = body.get("page_id")
+    properties = body.get("properties", {})
+    children = body.get("children")
+
+    if page_id:
+        # Update
+        res = notion.pages.update(page_id=page_id, properties=properties)
+        if children:
+            notion.blocks.children.append(block_id=page_id, children=children)
+        return res
+    else:
+        # Create
+        res = notion.pages.create(parent={"database_id": database_id}, properties=properties, children=children)
+        return res
+
+@app.post("/notion/append-blocks")
+def append_blocks(body: Dict[str, Any], x_api_key: Optional[str] = Header(None)):
+    require_key(x_api_key)
+    if not notion:
+        raise HTTPException(500, "Server missing NOTION_TOKEN")
+    page_id = body.get("page_id")
+    blocks = body.get("blocks", [])
+    if not page_id or not blocks:
+        raise HTTPException(400, "page_id and blocks required")
+    res = notion.blocks.children.append(block_id=page_id, children=blocks)
+    return res
