@@ -65,12 +65,6 @@ def upsert_item(body: Dict[str, Any], x_api_key: Optional[str] = Header(None)):
     if not notion:
         raise HTTPException(500, "Server missing NOTION_TOKEN")
     
-    # DEBUG: Log the incoming request
-    print("=" * 50)
-    print("UPSERT REQUEST RECEIVED:")
-    print(f"Body: {body}")
-    print("=" * 50)
-    
     database_id = body.get("database_id")
     page_id = body.get("page_id")
     properties = body.get("properties", {})
@@ -81,7 +75,6 @@ def upsert_item(body: Dict[str, Any], x_api_key: Optional[str] = Header(None)):
         res = notion.pages.update(page_id=page_id, properties=properties)
         if children:
             notion.blocks.children.append(block_id=page_id, children=children)
-        return res
     else:
         # Create new page
         create_params = {
@@ -92,10 +85,16 @@ def upsert_item(body: Dict[str, Any], x_api_key: Optional[str] = Header(None)):
         if children is not None:
             create_params["children"] = children
         
-        print(f"Creating page with params: {create_params}")
-        
         res = notion.pages.create(**create_params)
-        return res
+    
+    # Return response matching OpenAPI schema
+    return {
+        "object": res.get("object"),
+        "id": res.get("id"),
+        "url": res.get("url"),
+        "archived": res.get("archived", False),
+        "properties": res.get("properties", {})
+    }
 
 @app.post("/notion/append-blocks")
 def append_blocks(body: Dict[str, Any], x_api_key: Optional[str] = Header(None)):
