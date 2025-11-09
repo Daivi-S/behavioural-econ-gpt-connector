@@ -70,14 +70,24 @@ def upsert_item(body: Dict[str, Any], x_api_key: Optional[str] = Header(None)):
     children = body.get("children")
 
     if page_id:
-        # Update
+        # Update existing page
         res = notion.pages.update(page_id=page_id, properties=properties)
+        # Only append children if they exist
         if children:
             notion.blocks.children.append(block_id=page_id, children=children)
         return res
     else:
-        # Create
-        res = notion.pages.create(parent={"database_id": database_id}, properties=properties, children=children)
+        # Create new page - only pass children if it's not None
+        create_params = {
+            "parent": {"database_id": database_id},
+            "properties": properties
+        }
+        
+        # Only add children if it exists and is not None
+        if children is not None:
+            create_params["children"] = children
+        
+        res = notion.pages.create(**create_params)
         return res
 
 @app.post("/notion/append-blocks")
