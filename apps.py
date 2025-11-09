@@ -104,14 +104,11 @@ def upsert_item(body: UpsertItemBody, x_api_key: Optional[str] = Header(None)):
         
         res = notion.pages.create(**create_params)
     
-    # Return simplified response for ChatGPT
+    # Return ONLY the fields defined in schema - nothing extra
     return {
         "success": True,
         "id": res.get("id"),
-        "url": res.get("url"),
-        "object": res.get("object"),
-        "created_time": res.get("created_time"),
-        "last_edited_time": res.get("last_edited_time")
+        "url": res.get("url")
     }
 
 @app.post("/notion/append-blocks")
