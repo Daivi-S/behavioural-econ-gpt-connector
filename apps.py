@@ -64,6 +64,13 @@ def upsert_item(body: Dict[str, Any], x_api_key: Optional[str] = Header(None)):
     require_key(x_api_key)
     if not notion:
         raise HTTPException(500, "Server missing NOTION_TOKEN")
+    
+    # DEBUG: Log the incoming request
+    print("=" * 50)
+    print("UPSERT REQUEST RECEIVED:")
+    print(f"Body: {body}")
+    print("=" * 50)
+    
     database_id = body.get("database_id")
     page_id = body.get("page_id")
     properties = body.get("properties", {})
@@ -72,20 +79,20 @@ def upsert_item(body: Dict[str, Any], x_api_key: Optional[str] = Header(None)):
     if page_id:
         # Update existing page
         res = notion.pages.update(page_id=page_id, properties=properties)
-        # Only append children if they exist
         if children:
             notion.blocks.children.append(block_id=page_id, children=children)
         return res
     else:
-        # Create new page - only pass children if it's not None
+        # Create new page
         create_params = {
             "parent": {"database_id": database_id},
             "properties": properties
         }
         
-        # Only add children if it exists and is not None
         if children is not None:
             create_params["children"] = children
+        
+        print(f"Creating page with params: {create_params}")
         
         res = notion.pages.create(**create_params)
         return res
