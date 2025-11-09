@@ -38,6 +38,22 @@ class UpsertItemBody(BaseModel):
     class Config:
         extra = "allow"
 
+class UpsertResponse(BaseModel):
+    success: bool
+    id: str
+    url: str
+
+class QueryResponse(BaseModel):
+    success: bool
+    object: str
+    results: list
+    has_more: bool
+    next_cursor: Optional[str] = None
+
+class AppendResponse(BaseModel):
+    success: bool
+    results: list
+
 class AppendBlocksBody(BaseModel):
     page_id: str
     blocks: list = Field(default_factory=list)
@@ -49,8 +65,8 @@ class AppendBlocksBody(BaseModel):
 def health():
     return {"ok": True}
 
-@app.post("/notion/query-database")
-def query_database(body: QueryDatabaseBody, x_api_key: Optional[str] = Header(None)):
+@app.post("/notion/query-database", response_model=QueryResponse)
+def query_database(body: QueryDatabaseBody, x_api_key: Optional[str] = Header(None)) -> QueryResponse:
     require_key(x_api_key)
     if not notion:
         raise HTTPException(500, "Server missing NOTION_TOKEN")
@@ -69,16 +85,16 @@ def query_database(body: QueryDatabaseBody, x_api_key: Optional[str] = Header(No
     res = notion.databases.query(**query_params)
     
     # Return simplified response
-    return {
-        "success": True,
-        "object": res.get("object", "list"),
-        "results": res.get("results", []),
-        "has_more": res.get("has_more", False),
-        "next_cursor": res.get("next_cursor")
-    }
+    return QueryResponse(
+        success=True,
+        object=res.get("object", "list"),
+        results=res.get("results", []),
+        has_more=res.get("has_more", False),
+        next_cursor=res.get("next_cursor")
+    )
 
-@app.post("/notion/upsert-database-item")
-def upsert_item(body: UpsertItemBody, x_api_key: Optional[str] = Header(None)):
+@app.post("/notion/upsert-database-item", response_model=UpsertResponse)
+def upsert_item(body: UpsertItemBody, x_api_key: Optional[str] = Header(None)) -> UpsertResponse:
     require_key(x_api_key)
     if not notion:
         raise HTTPException(500, "Server missing NOTION_TOKEN")
@@ -105,15 +121,18 @@ def upsert_item(body: UpsertItemBody, x_api_key: Optional[str] = Header(None)):
         
         res = notion.pages.create(**create_params)
     
-    # Return minimal response matching schema
-    return {
-        "success": True,
-        "id": res.get("id"),
-        "url": res.get("url")
-    }
+    # Return minimal response with explicit string types
+    page_id = str(res.get("id", ""))
+    page_url = str(res.get("url", ""))
+    
+    return UpsertResponse(
+        success=True,
+        id=page_id,
+        url=page_url
+    )
 
-@app.post("/notion/append-blocks")
-def append_blocks(body: AppendBlocksBody, x_api_key: Optional[str] = Header(None)):
+@app.post("/notion/append-blocks", response_model=AppendResponse)
+def append_blocks(body: AppendBlocksBody, x_api_key: Optional[str] = Header(None)) -> AppendResponse:
     require_key(x_api_key)
     if not notion:
         raise HTTPException(500, "Server missing NOTION_TOKEN")
@@ -127,7 +146,7 @@ def append_blocks(body: AppendBlocksBody, x_api_key: Optional[str] = Header(None
     res = notion.blocks.children.append(block_id=page_id, children=blocks)
     
     # Return simplified response
-    return {
-        "success": True,
-        "results": res.get("results", [])
-    }
+    return AppendResponse(
+        success=True,
+        results=res.get("results", [])
+    )
