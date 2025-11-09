@@ -39,9 +39,18 @@ class UpsertItemBody(BaseModel):
         extra = "allow"
 
 class UpsertResponse(BaseModel):
-    success: bool
-    id: str
-    url: str
+    success: bool = Field(default=True, description="Operation success status")
+    id: str = Field(..., min_length=1, description="Notion page ID")
+    url: str = Field(..., min_length=1, description="Notion page URL")
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "success": True,
+                "id": "2a6ea6ed-f674-8107-8026-ccc84f0bc359",
+                "url": "https://www.notion.so/page-title-2a6ea6edf674..."
+            }
+        }
 
 class QueryResponse(BaseModel):
     success: bool
@@ -93,7 +102,7 @@ def query_database(body: QueryDatabaseBody, x_api_key: Optional[str] = Header(No
         next_cursor=res.get("next_cursor")
     )
 
-@app.post("/notion/upsert-database-item", response_model=UpsertResponse)
+@app.post("/notion/upsert-database-item", response_model=UpsertResponse, response_model_exclude_none=True)
 def upsert_item(body: UpsertItemBody, x_api_key: Optional[str] = Header(None)) -> UpsertResponse:
     require_key(x_api_key)
     if not notion:
@@ -121,9 +130,12 @@ def upsert_item(body: UpsertItemBody, x_api_key: Optional[str] = Header(None)) -
         
         res = notion.pages.create(**create_params)
     
-    # Return minimal response with explicit string types
-    page_id = str(res.get("id", ""))
-    page_url = str(res.get("url", ""))
+    # Return minimal response with explicit string types - no None values
+    page_id = str(res.get("id") or "")
+    page_url = str(res.get("url") or "")
+    
+    if not page_id or not page_url:
+        raise HTTPException(500, "Failed to create page - missing id or url")
     
     return UpsertResponse(
         success=True,
