@@ -1,19 +1,15 @@
-import os, datetime
-from dateutil.relativedelta import relativedelta
+import os
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, Any, Dict
 from notion_client import Client as Notion
-from openai import OpenAI
 
 NOTION_TOKEN = os.getenv("NOTION_TOKEN")
 ACTIONS_API_KEY = os.getenv("ACTIONS_API_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 if not NOTION_TOKEN:
     print("WARNING: NOTION_TOKEN not set yet")
 notion = Notion(auth=NOTION_TOKEN) if NOTION_TOKEN else None
-client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 app = FastAPI(title="CUBS Notion Connector")
 
@@ -61,6 +57,7 @@ def query_database(body: QueryDatabaseBody, x_api_key: Optional[str] = Header(No
     
     query_params = {"database_id": body.database_id}
     
+    # Only include optional parameters if they're provided
     if body.filter is not None:
         query_params["filter"] = body.filter
     
@@ -71,7 +68,9 @@ def query_database(body: QueryDatabaseBody, x_api_key: Optional[str] = Header(No
     
     res = notion.databases.query(**query_params)
     
+    # Return simplified response
     return {
+        "success": True,
         "object": res.get("object", "list"),
         "results": res.get("results", []),
         "has_more": res.get("has_more", False),
@@ -90,10 +89,12 @@ def upsert_item(body: UpsertItemBody, x_api_key: Optional[str] = Header(None)):
     children = body.children
 
     if page_id:
+        # Update existing page
         res = notion.pages.update(page_id=page_id, properties=properties)
         if children:
             notion.blocks.children.append(block_id=page_id, children=children)
     else:
+        # Create new page - only include children if provided
         create_params = {
             "parent": {"database_id": database_id},
             "properties": properties
@@ -104,7 +105,7 @@ def upsert_item(body: UpsertItemBody, x_api_key: Optional[str] = Header(None)):
         
         res = notion.pages.create(**create_params)
     
-    # Return ONLY the fields defined in schema - nothing extra
+    # Return minimal response matching schema
     return {
         "success": True,
         "id": res.get("id"),
@@ -124,6 +125,9 @@ def append_blocks(body: AppendBlocksBody, x_api_key: Optional[str] = Header(None
         raise HTTPException(400, "page_id and blocks required")
     
     res = notion.blocks.children.append(block_id=page_id, children=blocks)
-    return res
-
     
+    # Return simplified response
+    return {
+        "success": True,
+        "results": res.get("results", [])
+    }
