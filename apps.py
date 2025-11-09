@@ -90,12 +90,10 @@ def upsert_item(body: UpsertItemBody, x_api_key: Optional[str] = Header(None)):
     children = body.children
 
     if page_id:
-        # Update existing page
         res = notion.pages.update(page_id=page_id, properties=properties)
         if children:
             notion.blocks.children.append(block_id=page_id, children=children)
     else:
-        # Create new page
         create_params = {
             "parent": {"database_id": database_id},
             "properties": properties
@@ -106,7 +104,15 @@ def upsert_item(body: UpsertItemBody, x_api_key: Optional[str] = Header(None)):
         
         res = notion.pages.create(**create_params)
     
-    return res
+    # Return simplified response for ChatGPT
+    return {
+        "success": True,
+        "id": res.get("id"),
+        "url": res.get("url"),
+        "object": res.get("object"),
+        "created_time": res.get("created_time"),
+        "last_edited_time": res.get("last_edited_time")
+    }
 
 @app.post("/notion/append-blocks")
 def append_blocks(body: AppendBlocksBody, x_api_key: Optional[str] = Header(None)):
@@ -122,3 +128,5 @@ def append_blocks(body: AppendBlocksBody, x_api_key: Optional[str] = Header(None
     
     res = notion.blocks.children.append(block_id=page_id, children=blocks)
     return res
+
+    
